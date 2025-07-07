@@ -1,0 +1,19 @@
+{
+    "name": "cargaplay-whatsapp-server",
+    "version": "1.0.0",
+    "description": "Servidor para processar webhooks do FluentCRM e enviar mensagens via API da Meta.",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "axios": "^1.7.2",
+        "express": "^4.19.2",
+        "body-parser": "^1.20.2"
+    },
+    "engines": {
+        "node": "18.x"
+    }
+}
