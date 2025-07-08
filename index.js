@@ -33,7 +33,7 @@ async function sendMessage(to, templateName, components = []) {
         return;
     }
 
-    let formattedTo = to.replace(/\D/g, ''); // Remove todos os não-dígitos
+    let formattedTo = to.replace(/\D/g, '');
     if (!formattedTo.startsWith('55')) {
         formattedTo = `55${formattedTo}`;
     }
@@ -63,27 +63,95 @@ async function sendMessage(to, templateName, components = []) {
     }
 }
 
-// --- 5. ENDPOINTS (URLs) PARA CADA AUTOMAÇÃO ---
+// --- 5. ENDPOINTS (URLs) PARA CADA TEMPLATE ---
+// Lembre-se: ajuste o nome do template e parâmetros conforme o que está aprovado no painel!
 
-// NOVO: Gatilho para envio do template 'pedido'
+// 1. Pedido concluído (template: pedido)
 app.post('/webhook/pedido', async (req, res) => {
     const contact = req.body;
-    console.log('Webhook /pedido recebido para:', contact.phone);
-    // Envie as variáveis conforme ordem do template: nome, produto, valor, código
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' },
-            { type: 'text', text: contact.produto || 'Produto Teste' },
+            { type: 'text', text: contact.produto || 'Produto' },
             { type: 'text', text: contact.valor || 'R$ 29,90' },
-            { type: 'text', text: contact.codigo || 'CHAVE-TESTE-123' }
+            { type: 'text', text: contact.codigo || 'CHAVE-123' }
         ]}
     ];
     await sendMessage(contact.phone, 'pedido', components);
     res.status(200).send('Webhook de pedido processado.');
 });
 
-// Outros endpoints (mantidos)
-// ... [os demais endpoints continuam iguais ao seu exemplo, removi aqui só para enxugar]
+// 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias)
+app.post('/webhook/lembrete_3dias', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, 'lembrete_3dias', components);
+    res.status(200).send('Webhook de lembrete 3 dias processado.');
+});
+
+// 3. Expira hoje (template: expira_hoje)
+app.post('/webhook/expira_hoje', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, 'expira_hoje', components);
+    res.status(200).send('Webhook de expira hoje processado.');
+});
+
+// 4. Lembrete 35 dias (template: lembrete_35dias)
+app.post('/webhook/lembrete_35dias', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, 'lembrete_35dias', components);
+    res.status(200).send('Webhook de lembrete 35 dias processado.');
+});
+
+// 5. Lembrete 40 dias CUPOM (template: lembrete_40dias_cupom)
+app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, 'lembrete_40dias_cupom', components);
+    res.status(200).send('Webhook de lembrete 40 dias cupom processado.');
+});
+
+// 6. Lembrete 57 dias CUPOM (template: lembrete_57_dias_cupom)
+app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, 'lembrete_57_dias_cupom', components);
+    res.status(200).send('Webhook de lembrete 57 dias cupom processado.');
+});
+
+// 7. Lembrete 60 dias (template: 60dias)
+app.post('/webhook/60dias', async (req, res) => {
+    const contact = req.body;
+    const components = [
+        { type: 'body', parameters: [
+            { type: 'text', text: contact.first_name || 'Cliente' }
+        ]}
+    ];
+    await sendMessage(contact.phone, '60dias', components);
+    res.status(200).send('Webhook de 60 dias processado.');
+});
 
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
