@@ -82,12 +82,13 @@ app.post('/webhook/pedido_concluido', async (req, res) => {
     res.status(200).send('Webhook de pedido concluído processado.');
 });
 
-// Gatilho: 27 dias após a compra
+// Gatilho: 27 dias após a compra (TESTE: Usando template 'aviso_expiracao_hoje' para verificar funcionalidade)
 app.post('/webhook/lembrete_27_dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_27_dias recebido para:', contact.email);
     const components = [{ type: 'body', parameters: [{ type: 'text', text: contact.first_name || 'Cliente' }] }];
-    await sendMessage(contact.phone, 'lembrete_vencimento_3_dias', components);
+    // ALTERAÇÃO AQUI: Mudando para 'aviso_expiracao_hoje' para teste
+    await sendMessage(contact.phone, 'aviso_expiracao_hoje', components); 
     res.status(200).send('Webhook de lembrete 27 dias processado.');
 });
 
@@ -100,11 +101,12 @@ app.post('/webhook/expira_hoje', async (req, res) => {
     res.status(200).send('Webhook de expira hoje processado.');
 });
 
-// Gatilho: 35 dias após a compra
+// Gatilho: 35 dias após a compra (Usando 'lembrete_pos_expiracao_5_dias')
 app.post('/webhook/lembrete_35_dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_35_dias recebido para:', contact.email);
     const components = [{ type: 'body', parameters: [{ type: 'text', text: contact.first_name || 'Cliente' }] }];
+    // ALTERAÇÃO AQUI: Mudando para 'lembrete_pos_expiracao_5_dias'
     await sendMessage(contact.phone, 'lembrete_pos_expiracao_5_dias', components);
     res.status(200).send('Webhook de lembrete 35 dias processado.');
 });
