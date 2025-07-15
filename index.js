@@ -68,20 +68,29 @@ async function sendMessage(to, templateName, components = []) {
 
 // 1. Pedido concluído (template: pedido)
 app.post('/webhook/pedido', async (req, res) => {
-    const contact = req.body;
-    // --- LINHA DE DEPURAÇÃO ADICIONADA AQUI ---
-    console.log('Webhook /pedido recebido. Conteúdo completo do body:', JSON.stringify(req.body, null, 2));
-    // --- FIM DA LINHA DE DEPURAÇÃO ---
+    const data = req.body; // Renomeado para 'data' para evitar conflito com 'contact' no log
+    console.log('Webhook /pedido recebido. Conteúdo completo do body:', JSON.stringify(data, null, 2));
+
+    // Extraindo dados do formato 'Full Subscriber Data (Raw)' do FluentCRM
+    const firstName = data.first_name || data.full_name || 'Cliente';
+    const phoneNumber = data.phone || data.billing_phone || ''; // Tenta phone ou billing_phone
+    
+    // Dados do pedido geralmente vêm dentro de 'order_data' ou similar
+    const orderItems = data.order_data && data.order_data.items ? 
+                       data.order_data.items.map(item => item.name).join(', ') : 'Produto Desconhecido';
+    const orderTotal = data.order_data && data.order_data.total ? 
+                       `R$ ${parseFloat(data.order_data.total).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
+    const orderKey = data.order_data && data.order_data.order_key ? data.order_data.order_key : 'CHAVE-INDISPONIVEL';
 
     const components = [
         { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' },
-            { type: 'text', text: contact.produto || 'Produto' },
-            { type: 'text', text: contact.valor || 'R$ 29,90' },
-            { type: 'text', text: contact.codigo || 'CHAVE-123' }
+            { type: 'text', text: firstName },
+            { type: 'text', text: orderItems },
+            { type: 'text', text: orderTotal },
+            { type: 'text', text: orderKey }
         ]}
     ];
-    await sendMessage(contact.phone, 'pedido', components);
+    await sendMessage(phoneNumber, 'pedido', components); // Usa phoneNumber
     res.status(200).send('Webhook de pedido processado.');
 });
 
