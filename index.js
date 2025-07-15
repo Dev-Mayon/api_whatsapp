@@ -69,6 +69,10 @@ async function sendMessage(to, templateName, components = []) {
 // 1. Pedido concluído (template: pedido)
 app.post('/webhook/pedido', async (req, res) => {
     const contact = req.body;
+    // --- LINHA DE DEPURAÇÃO ADICIONADA AQUI ---
+    console.log('Webhook /pedido recebido. Conteúdo completo do body:', JSON.stringify(req.body, null, 2));
+    // --- FIM DA LINHA DE DEPURAÇÃO ---
+
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' },
@@ -84,6 +88,7 @@ app.post('/webhook/pedido', async (req, res) => {
 // 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias)
 app.post('/webhook/lembrete_3dias', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /lembrete_3dias recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
@@ -96,6 +101,7 @@ app.post('/webhook/lembrete_3dias', async (req, res) => {
 // 3. Expira hoje (template: expira_hoje)
 app.post('/webhook/expira_hoje', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /expira_hoje recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
@@ -108,6 +114,7 @@ app.post('/webhook/expira_hoje', async (req, res) => {
 // 4. Lembrete 35 dias (template: lembrete_35dias)
 app.post('/webhook/lembrete_35dias', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /lembrete_35dias recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
@@ -120,6 +127,7 @@ app.post('/webhook/lembrete_35dias', async (req, res) => {
 // 5. Lembrete 40 dias CUPOM (template: lembrete_40dias_cupom)
 app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /lembrete_40dias_cupom recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
@@ -132,6 +140,7 @@ app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
 // 6. Lembrete 57 dias CUPOM (template: lembrete_57_dias_cupom)
 app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /lembrete_57_dias recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
@@ -144,6 +153,7 @@ app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
 // 7. Lembrete 60 dias (template: 60dias)
 app.post('/webhook/60dias', async (req, res) => {
     const contact = req.body;
+    console.log('Webhook /60dias recebido para:', contact.email);
     const components = [
         { type: 'body', parameters: [
             { type: 'text', text: contact.first_name || 'Cliente' }
