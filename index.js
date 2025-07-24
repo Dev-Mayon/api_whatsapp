@@ -67,30 +67,41 @@ async function sendMessage(to, templateName, components = []) {
 // Lembre-se: ajuste o nome do template e parâmetros conforme o que está aprovado no painel!
 
 // 1. Pedido concluído (template: pedido)
+// 1. Pedido concluído (template: pedido) - VERSÃO FINAL ROBUSTA
 app.post('/webhook/pedido', async (req, res) => {
-    const data = req.body; // Renomeado para 'data' para evitar conflito com 'contact' no log
+    const data = req.body;
     console.log('Webhook /pedido recebido. Conteúdo completo do body:', JSON.stringify(data, null, 2));
 
-    // Extraindo dados do formato 'Full Subscriber Data (Raw)' do FluentCRM
-    const firstName = data.first_name || data.full_name || 'Cliente';
-    const phoneNumber = data.phone || data.billing_phone || ''; // Tenta phone ou billing_phone
-    
-    // Dados do pedido geralmente vêm dentro de 'order_data' ou similar
-    const orderItems = data.order_data && data.order_data.items ? 
-                       data.order_data.items.map(item => item.name).join(', ') : 'Produto Desconhecido';
-    const orderTotal = data.order_data && data.order_data.total ? 
-                       `R$ ${parseFloat(data.order_data.total).toFixed(2).replace('.', ',')}` : 'R$ 0,00';
-    const orderKey = data.order_data && data.order_data.order_key ? data.order_data.order_key : 'CHAVE-INDISPONIVEL';
+    const firstName = data.first_name || 'Cliente';
+    const phoneNumber = data.phone || ''; // Pega o telefone que chega
 
-    const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: firstName },
-            { type: 'text', text: orderItems },
-            { type: 'text', text: orderTotal },
-            { type: 'text', text: orderKey }
-        ]}
-    ];
-    await sendMessage(phoneNumber, 'pedido', components); // Usa phoneNumber
+    // Versão final para dados "planos" do Automator
+    const orderItems = data.order_items || 'Produto não especificado';
+    
+    // Pega o total (mesmo o "unformatted") e garante que é um número
+    const orderTotalNumber = parseFloat(data.order_total) || 0;
+    const orderTotal = `R$ ${orderTotalNumber.toFixed(2).replace('.', ',')}`;
+
+    const orderKey = data.order_key || 'N/A';
+
+    // *** A PARTE MAIS IMPORTANTE ***
+    // Só tenta enviar a mensagem se o campo "phoneNumber" não for vazio e tiver mais de 5 dígitos.
+    if (phoneNumber && phoneNumber.length > 5) {
+        const components = [
+            { type: 'body', parameters: [
+                { type: 'text', text: firstName },
+                { type: 'text', text: orderItems },
+                { type: 'text', text: orderTotal },
+                { type: 'text', text: orderKey }
+            ]}
+        ];
+        // A função sendMessage já formata o número, então não precisamos nos preocupar aqui.
+        await sendMessage(phoneNumber, 'pedido', components);
+    } else {
+        // Se o telefone chegar vazio, ele vai registrar este aviso e não tentará enviar.
+        console.log(`AVISO: Telefone chegou vazio ou inválido. Dados recebidos: ${JSON.stringify(data)}. Mensagem para ${firstName} não foi enviada.`);
+    }
+
     res.status(200).send('Webhook de pedido processado.');
 });
 
@@ -99,9 +110,11 @@ app.post('/webhook/lembrete_3dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_3dias recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, 'lembrete_3dias', components);
     res.status(200).send('Webhook de lembrete 3 dias processado.');
@@ -112,9 +125,11 @@ app.post('/webhook/expira_hoje', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /expira_hoje recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, 'expira_hoje', components);
     res.status(200).send('Webhook de expira hoje processado.');
@@ -125,9 +140,11 @@ app.post('/webhook/lembrete_35dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_35dias recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, 'lembrete_35dias', components);
     res.status(200).send('Webhook de lembrete 35 dias processado.');
@@ -138,9 +155,11 @@ app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_40dias_cupom recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, 'lembrete_40dias_cupom', components);
     res.status(200).send('Webhook de lembrete 40 dias cupom processado.');
@@ -151,9 +170,11 @@ app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_57_dias recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, 'lembrete_57_dias_cupom', components);
     res.status(200).send('Webhook de lembrete 57 dias cupom processado.');
@@ -164,9 +185,11 @@ app.post('/webhook/60dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /60dias recebido para:', contact.email);
     const components = [
-        { type: 'body', parameters: [
-            { type: 'text', text: contact.first_name || 'Cliente' }
-        ]}
+        {
+            type: 'body', parameters: [
+                { type: 'text', text: contact.first_name || 'Cliente' }
+            ]
+        }
     ];
     await sendMessage(contact.phone, '60dias', components);
     res.status(200).send('Webhook de 60 dias processado.');
