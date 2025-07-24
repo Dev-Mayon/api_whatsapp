@@ -68,38 +68,54 @@ async function sendMessage(to, templateName, components = []) {
 
 // 1. Pedido concluído (template: pedido)
 // 1. Pedido concluído (template: pedido) - VERSÃO FINAL ROBUSTA
+// Substitua o seu app.post('/webhook/pedido', ...) por este código final:
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
-    console.log('Webhook /pedido recebido. Conteúdo completo do body:', JSON.stringify(data, null, 2));
+    console.log('Webhook de pedido recebido do Automator. Order Key:', data.order_key);
 
-    const firstName = data.first_name || 'Cliente';
-    const phoneNumber = data.phone || ''; // Pega o telefone que chega
+    const orderId = data.order_key; // Pega o Order ID que o Automator nos envia
 
-    // Versão final para dados "planos" do Automator
-    const orderItems = data.order_items || 'Produto não especificado';
-    
-    // Pega o total (mesmo o "unformatted") e garante que é um número
-    const orderTotalNumber = parseFloat(data.order_total) || 0;
-    const orderTotal = `R$ ${orderTotalNumber.toFixed(2).replace('.', ',')}`;
+    if (!orderId) {
+        console.log('ERRO: Order ID não foi recebido do Automator.');
+        return res.status(400).send('Order ID não recebido.');
+    }
 
-    const orderKey = data.order_key || 'N/A';
+    try {
+        // --- BUSCANDO DADOS DO PEDIDO NA API DO WOOCOMMERCE ---
+        const WC_URL = process.env.WC_URL;
+        const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
+        const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
 
-    // *** A PARTE MAIS IMPORTANTE ***
-    // Só tenta enviar a mensagem se o campo "phoneNumber" não for vazio e tiver mais de 5 dígitos.
-    if (phoneNumber && phoneNumber.length > 5) {
-        const components = [
-            { type: 'body', parameters: [
-                { type: 'text', text: firstName },
-                { type: 'text', text: orderItems },
-                { type: 'text', text: orderTotal },
-                { type: 'text', text: orderKey }
-            ]}
-        ];
-        // A função sendMessage já formata o número, então não precisamos nos preocupar aqui.
-        await sendMessage(phoneNumber, 'pedido', components);
-    } else {
-        // Se o telefone chegar vazio, ele vai registrar este aviso e não tentará enviar.
-        console.log(`AVISO: Telefone chegou vazio ou inválido. Dados recebidos: ${JSON.stringify(data)}. Mensagem para ${firstName} não foi enviada.`);
+        console.log(`Buscando dados do pedido ${orderId} no WooCommerce...`);
+        const response = await axios.get(`${WC_URL}/wp-json/wc/v3/orders/${orderId}`, {
+            auth: {
+                username: WC_CONSUMER_KEY,
+                password: WC_CONSUMER_SECRET
+            }
+        });
+
+        const orderData = response.data;
+        const phoneNumber = orderData.billing.phone; // Pega o telefone real direto do pedido!
+        const firstName = orderData.billing.first_name || 'Cliente';
+        const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
+        const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
+        
+        if (phoneNumber && phoneNumber.length > 5) {
+            const components = [
+                { type: 'body', parameters: [
+                    { type: 'text', text: firstName },
+                    { type: 'text', text: orderItems },
+                    { type: 'text', text: orderTotal },
+                    { type: 'text', text: orderId.toString() } // Usamos o orderId como orderKey
+                ]}
+            ];
+            await sendMessage(phoneNumber, 'pedido', components);
+        } else {
+            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce. Mensagem não enviada.`);
+        }
+
+    } catch (apiError) {
+        console.error(`ERRO ao buscar dados do pedido ${orderId} na API do WooCommerce:`, apiError.response ? apiError.response.data : apiError.message);
     }
 
     res.status(200).send('Webhook de pedido processado.');
