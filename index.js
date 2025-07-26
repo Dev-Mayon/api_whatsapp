@@ -1,5 +1,5 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v3 (FINAL)
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (FINAL E ESTÁVEL)
 // =================================================================
 
 // --- 1. IMPORTAÇÃO DE PACOTES ---
@@ -15,6 +15,10 @@ app.use(bodyParser.json()); // Permite ao servidor ler dados JSON
 const WABA_ID = process.env.WABA_ID;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
+const WC_URL = process.env.WC_URL;
+const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
+const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
+const AUTOMATOR_EMAIL_WEBHOOK_URL = process.env.AUTOMATOR_EMAIL_WEBHOOK_URL;
 
 const META_API_URL = `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`;
 
@@ -29,7 +33,7 @@ async function sendMessage(to, templateName, components = []) {
     console.log(`Tentando enviar template '${templateName}' para o número ${to}...`);
 
     if (!WABA_ID || !PHONE_NUMBER_ID || !META_ACCESS_TOKEN) {
-        console.error('ERRO: Variáveis de ambiente não configuradas. Verifique WABA_ID, PHONE_NUMBER_ID, e META_ACCESS_TOKEN na Render.');
+        console.error('ERRO: Variáveis de ambiente do WhatsApp não configuradas.');
         return;
     }
 
@@ -64,16 +68,8 @@ async function sendMessage(to, templateName, components = []) {
 }
 
 // --- 5. ENDPOINTS (URLs) PARA CADA TEMPLATE ---
-// Lembre-se: ajuste o nome do template e parâmetros conforme o que está aprovado no painel!
 
-// 1. Pedido concluído (template: pedido)
-// VERSÃO FINAL - BUSCA TODOS OS DADOS, INCLUINDO CÓDIGO DE ATIVAÇÃO
-// VERSÃO FINAL COM PAUSA DE 15 SEGUNDOS
-// VERSÃO FINAL E DEFINITIVA - Encontra o código dentro do item de linha
-// VERSÃO FINAL COMPLETA - ENVIA WHATSAPP E DISPARA E-MAIL
-// VERSÃO FINAL ESTÁVEL - Responde apenas no final do processo
-// VERSÃO FINAL E ESTÁVEL - ENVIA WHATSAPP E DISPARA E-MAIL
-// VERSÃO ESTÁVEL E CORRETA - Foco 100% no WhatsApp com código de ativação
+// 1. Pedido concluído (template: pedido) - VERSÃO FINAL E ESTÁVEL
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -88,24 +84,20 @@ app.post('/webhook/pedido', async (req, res) => {
     console.log(`Pausa de 15 segundos completa. Buscando dados do pedido ${orderId}...`);
 
     try {
-        const WC_URL = process.env.WC_URL;
-        const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
-        const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
-
         const response = await axios.get(`${WC_URL}/wp-json/wc/v3/orders/${orderId}`, {
             auth: { username: WC_CONSUMER_KEY, password: WC_CONSUMER_SECRET }
         });
 
         const orderData = response.data;
         const phoneNumber = orderData.billing.phone;
+        const email = orderData.billing.email;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
         
         let activationCode = 'N/A';
         if (orderData.line_items && orderData.line_items.length > 0) {
-            const lineItem = orderData.line_items[0];
-            const metaData = lineItem.meta_data || [];
+            const metaData = orderData.line_items[0].meta_data || [];
             const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
             if (activationCodeObject) {
                 activationCode = activationCodeObject.value;
@@ -113,15 +105,29 @@ app.post('/webhook/pedido', async (req, res) => {
         }
         console.log(`Código de ativação encontrado: ${activationCode}`);
         
+        // Tarefa 1: Envia o WhatsApp
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
-            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
+            console.log(`AVISO: Pedido ${orderId} não possui número de telefone.`);
         }
 
-        // Resposta ao Automator acontece aqui, no final.
-        res.status(200).send('Processamento do webhook do WhatsApp concluído.');
+        // Tarefa 2: Dispara o Webhook para o E-mail
+        if (AUTOMATOR_EMAIL_WEBHOOK_URL && email) {
+            console.log(`Disparando webhook de e-mail para ${email}...`);
+            await axios.post(AUTOMATOR_EMAIL_WEBHOOK_URL, {
+                email: email,
+                first_name: firstName,
+                activation_code: activationCode
+            });
+            console.log('Webhook de e-mail disparado com sucesso para o Automator.');
+        } else {
+            console.log('AVISO: Webhook de e-mail não disparado. Verifique a variável de ambiente AUTOMATOR_EMAIL_WEBHOOK_URL e se o pedido tem um e-mail.');
+        }
+
+        // Responde ao Automator apenas no final de todo o processo.
+        res.status(200).send('Processamento do webhook concluído com sucesso.');
 
     } catch (apiError) {
         console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
@@ -129,104 +135,33 @@ app.post('/webhook/pedido', async (req, res) => {
     }
 });
 
-// 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias)
+
+// Outros endpoints (lembretes)
 app.post('/webhook/lembrete_3dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_3dias recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
     await sendMessage(contact.phone, 'lembrete_3dias', components);
     res.status(200).send('Webhook de lembrete 3 dias processado.');
 });
 
-// 3. Expira hoje (template: expira_hoje)
 app.post('/webhook/expira_hoje', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /expira_hoje recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
     await sendMessage(contact.phone, 'expira_hoje', components);
     res.status(200).send('Webhook de expira hoje processado.');
 });
 
-// 4. Lembrete 35 dias (template: lembrete_35dias)
-app.post('/webhook/lembrete_35dias', async (req, res) => {
-    const contact = req.body;
-    console.log('Webhook /lembrete_35dias recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
-    await sendMessage(contact.phone, 'lembrete_35dias', components);
-    res.status(200).send('Webhook de lembrete 35 dias processado.');
-});
+// Adicione aqui os outros endpoints de lembrete se necessário...
 
-// 5. Lembrete 40 dias CUPOM (template: lembrete_40dias_cupom)
-app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
-    const contact = req.body;
-    console.log('Webhook /lembrete_40dias_cupom recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
-    await sendMessage(contact.phone, 'lembrete_40dias_cupom', components);
-    res.status(200).send('Webhook de lembrete 40 dias cupom processado.');
-});
-
-// 6. Lembrete 57 dias CUPOM (template: lembrete_57_dias_cupom)
-app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
-    const contact = req.body;
-    console.log('Webhook /lembrete_57_dias recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
-    await sendMessage(contact.phone, 'lembrete_57_dias_cupom', components);
-    res.status(200).send('Webhook de lembrete 57 dias cupom processado.');
-});
-
-// 7. Lembrete 60 dias (template: 60dias)
-app.post('/webhook/60dias', async (req, res) => {
-    const contact = req.body;
-    console.log('Webhook /60dias recebido para:', contact.email);
-    const components = [
-        {
-            type: 'body', parameters: [
-                { type: 'text', text: contact.first_name || 'Cliente' }
-            ]
-        }
-    ];
-    await sendMessage(contact.phone, '60dias', components);
-    res.status(200).send('Webhook de 60 dias processado.');
-});
 
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
-    res.send('Servidor CargaPlay WhatsApp v3 (FINAL) está no ar!');
+    res.send('Servidor CargaPlay WhatsApp v4 (FINAL E ESTÁVEL) está no ar!');
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor v3 escutando na porta ${PORT}`);
+    console.log(`Servidor v4 escutando na porta ${PORT}`);
 });
-
-////
