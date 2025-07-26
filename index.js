@@ -102,7 +102,7 @@ app.post('/webhook/pedido', async (req, res) => {
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
         
         const metaData = orderData.meta_data || [];
-        const activationCodeObject = metaData.find(meta => meta.key === 'cw_activation_code');
+        const activationCodeObject = metaData.find(meta => meta.key === 'activation_keys');
         const activationCode = activationCodeObject ? activationCodeObject.value : 'N/A';
 
         console.log(`Código de ativação encontrado: ${activationCode}`);
