@@ -71,20 +71,19 @@ async function sendMessage(to, templateName, components = []) {
 // VERSÃO FINAL COM PAUSA DE 15 SEGUNDOS
 // VERSÃO FINAL E DEFINITIVA - Encontra o código dentro do item de linha
 // VERSÃO FINAL COMPLETA - ENVIA WHATSAPP E DISPARA E-MAIL
+// VERSÃO FINAL ESTÁVEL - Responde apenas no final do processo
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
-    
-    // Responde imediatamente ao Automator para não deixá-lo esperando
-    res.status(200).send('Webhook de pedido recebido. Processando em segundo plano.');
 
     if (!orderId) {
-        return console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
+        console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
+        return res.status(400).send('Order ID não recebido.');
     }
 
     console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 15 SEGUNDOS...`);
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    console.log(`Pausa de 10 segundos completa. Buscando dados do pedido ${orderId}...`);
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    console.log(`Pausa de 15 segundos completa. Buscando dados do pedido ${orderId}...`);
 
     try {
         const WC_URL = process.env.WC_URL;
@@ -128,12 +127,15 @@ app.post('/webhook/pedido', async (req, res) => {
                 activation_code: activationCode
             });
             console.log('Webhook de e-mail disparado com sucesso para o Automator.');
-        } else {
-            console.log('AVISO: Webhook de e-mail não disparado. Verifique a variável de ambiente AUTOMATOR_EMAIL_WEBHOOK_URL e se o pedido tem um e-mail.');
         }
+
+        // Resposta ao Automator acontece aqui, no final de tudo.
+        res.status(200).send('Processamento do webhook concluído com sucesso.');
 
     } catch (apiError) {
         console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
+        // Responde com erro se algo falhar.
+        res.status(500).send('Erro ao processar o webhook.');
     }
 });
 
