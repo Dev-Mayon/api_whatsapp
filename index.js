@@ -72,6 +72,7 @@ async function sendMessage(to, templateName, components = []) {
 // VERSÃO FINAL E DEFINITIVA - Encontra o código dentro do item de linha
 // VERSÃO FINAL COMPLETA - ENVIA WHATSAPP E DISPARA E-MAIL
 // VERSÃO FINAL ESTÁVEL - Responde apenas no final do processo
+// VERSÃO FINAL E ESTÁVEL - ENVIA WHATSAPP E DISPARA E-MAIL
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -111,13 +112,15 @@ app.post('/webhook/pedido', async (req, res) => {
         }
         console.log(`Código de ativação encontrado: ${activationCode}`);
         
-        // 1. Envia o WhatsApp
+        // Tarefa 1: Envia o WhatsApp
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
             await sendMessage(phoneNumber, 'pedido', components);
+        } else {
+            console.log(`AVISO: Pedido ${orderId} não possui número de telefone.`);
         }
 
-        // 2. Dispara o Webhook para o E-mail
+        // Tarefa 2: Dispara o Webhook para o E-mail
         const emailWebhookUrl = process.env.AUTOMATOR_EMAIL_WEBHOOK_URL;
         if (emailWebhookUrl && email) {
             console.log(`Disparando webhook de e-mail para ${email}...`);
@@ -127,9 +130,11 @@ app.post('/webhook/pedido', async (req, res) => {
                 activation_code: activationCode
             });
             console.log('Webhook de e-mail disparado com sucesso para o Automator.');
+        } else {
+            console.log('AVISO: Webhook de e-mail não disparado. Verifique a variável de ambiente AUTOMATOR_EMAIL_WEBHOOK_URL e se o pedido tem um e-mail.');
         }
 
-        // Resposta ao Automator acontece aqui, no final de tudo.
+        // Responde ao Automator apenas no final de todo o processo.
         res.status(200).send('Processamento do webhook concluído com sucesso.');
 
     } catch (apiError) {
