@@ -73,6 +73,7 @@ async function sendMessage(to, templateName, components = []) {
 // VERSÃO FINAL COMPLETA - ENVIA WHATSAPP E DISPARA E-MAIL
 // VERSÃO FINAL ESTÁVEL - Responde apenas no final do processo
 // VERSÃO FINAL E ESTÁVEL - ENVIA WHATSAPP E DISPARA E-MAIL
+// VERSÃO ESTÁVEL E CORRETA - Foco 100% no WhatsApp com código de ativação
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -97,14 +98,14 @@ app.post('/webhook/pedido', async (req, res) => {
 
         const orderData = response.data;
         const phoneNumber = orderData.billing.phone;
-        const email = orderData.billing.email;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
         
         let activationCode = 'N/A';
         if (orderData.line_items && orderData.line_items.length > 0) {
-            const metaData = orderData.line_items[0].meta_data || [];
+            const lineItem = orderData.line_items[0];
+            const metaData = lineItem.meta_data || [];
             const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
             if (activationCodeObject) {
                 activationCode = activationCodeObject.value;
@@ -112,34 +113,18 @@ app.post('/webhook/pedido', async (req, res) => {
         }
         console.log(`Código de ativação encontrado: ${activationCode}`);
         
-        // Tarefa 1: Envia o WhatsApp
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
-            console.log(`AVISO: Pedido ${orderId} não possui número de telefone.`);
+            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
         }
 
-        // Tarefa 2: Dispara o Webhook para o E-mail
-        const emailWebhookUrl = process.env.AUTOMATOR_EMAIL_WEBHOOK_URL;
-        if (emailWebhookUrl && email) {
-            console.log(`Disparando webhook de e-mail para ${email}...`);
-            await axios.post(emailWebhookUrl, {
-                email: email,
-                first_name: firstName,
-                activation_code: activationCode
-            });
-            console.log('Webhook de e-mail disparado com sucesso para o Automator.');
-        } else {
-            console.log('AVISO: Webhook de e-mail não disparado. Verifique a variável de ambiente AUTOMATOR_EMAIL_WEBHOOK_URL e se o pedido tem um e-mail.');
-        }
-
-        // Responde ao Automator apenas no final de todo o processo.
-        res.status(200).send('Processamento do webhook concluído com sucesso.');
+        // Resposta ao Automator acontece aqui, no final.
+        res.status(200).send('Processamento do webhook do WhatsApp concluído.');
 
     } catch (apiError) {
         console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
-        // Responde com erro se algo falhar.
         res.status(500).send('Erro ao processar o webhook.');
     }
 });
