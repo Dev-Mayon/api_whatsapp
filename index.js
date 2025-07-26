@@ -1,5 +1,5 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (FINAL - APENAS WHATSAPP)
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (ESTÁVEL - APENAS WHATSAPP)
 // =================================================================
 
 // --- 1. IMPORTAÇÃO DE PACOTES ---
@@ -50,7 +50,7 @@ async function sendMessage(to, templateName, components = []) {
 
 // --- 5. ENDPOINTS (URLs) ---
 
-// 1. Pedido concluído (template: pedido)
+// 1. Pedido concluído (template: pedido) - VERSÃO ESTÁVEL E COMPROVADA
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -66,7 +66,7 @@ app.post('/webhook/pedido', async (req, res) => {
 
     try {
         if (!WC_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
-            console.error('ERRO: Variáveis de ambiente do WooCommerce (WC_URL, WC_CONSUMER_KEY, WC_CONSUMER_SECRET) não estão configuradas na Render.');
+            console.error('ERRO: Variáveis de ambiente do WooCommerce (WC_URL, etc.) não estão configuradas na Render.');
             return res.status(500).send('Erro de configuração do servidor.');
         }
 
@@ -82,7 +82,8 @@ app.post('/webhook/pedido', async (req, res) => {
         
         let activationCode = 'N/A';
         if (orderData.line_items && orderData.line_items.length > 0) {
-            const metaData = orderData.line_items[0].meta_data || [];
+            const lineItem = orderData.line_items[0];
+            const metaData = lineItem.meta_data || [];
             const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
             if (activationCodeObject) {
                 activationCode = activationCodeObject.value;
@@ -105,12 +106,20 @@ app.post('/webhook/pedido', async (req, res) => {
     }
 });
 
-// Mantenha seus outros endpoints de lembrete aqui se precisar deles...
+// Mantenha seus outros endpoints de lembrete aqui
+app.post('/webhook/lembrete_3dias', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /lembrete_3dias recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'lembrete_3dias', components);
+    res.status(200).send('Webhook de lembrete 3 dias processado.');
+});
 
+// ... (seus outros webhooks de lembrete) ...
 
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
-    res.send('Servidor CargaPlay WhatsApp v4 (FINAL - APENAS WHATSAPP) está no ar!');
+    res.send('Servidor CargaPlay WhatsApp v4 (ESTÁVEL - APENAS WHATSAPP) está no ar!');
 });
 
 const PORT = process.env.PORT || 3000;
