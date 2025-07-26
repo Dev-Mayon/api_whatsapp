@@ -69,6 +69,7 @@ async function sendMessage(to, templateName, components = []) {
 // 1. Pedido concluído (template: pedido)
 // VERSÃO FINAL - BUSCA TODOS OS DADOS, INCLUINDO CÓDIGO DE ATIVAÇÃO
 // VERSÃO FINAL COM PAUSA DE 15 SEGUNDOS
+// VERSÃO FINAL E DEFINITIVA - Encontra o código dentro do item de linha
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -80,13 +81,11 @@ app.post('/webhook/pedido', async (req, res) => {
 
     console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 15 SEGUNDOS...`);
 
-    // --- NOVA PARTE: A PAUSA DE 15 SEGUNDOS ---
-    await new Promise(resolve => setTimeout(resolve, 15000)); // 15000 milissegundos = 15 segundos
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
-    console.log(`Pausa de 15 segundos completa. Buscando dados completos do pedido ${orderId} no WooCommerce...`);
+    console.log(`Pausa de 15 segundos completa. Buscando dados do pedido ${orderId}...`);
 
     try {
-        // --- O RESTO DO CÓDIGO CONTINUA IGUAL ---
         const WC_URL = process.env.WC_URL;
         const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
         const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
@@ -96,15 +95,21 @@ app.post('/webhook/pedido', async (req, res) => {
         });
 
         const orderData = response.data;
-        console.log('DADOS COMPLETOS DO PEDIDO:', JSON.stringify(orderData, null, 2));
         const phoneNumber = orderData.billing.phone;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
         
-        const metaData = orderData.meta_data || [];
-        const activationCodeObject = metaData.find(meta => meta.key === 'activation_keys');
-        const activationCode = activationCodeObject ? activationCodeObject.value : 'N/A';
+        // --- CÓDIGO CORRIGIDO PARA ENCONTRAR A CHAVE DE ATIVAÇÃO ---
+        let activationCode = 'N/A'; // Valor padrão
+        if (orderData.line_items && orderData.line_items.length > 0) {
+            const lineItem = orderData.line_items[0]; // Pega o primeiro produto do pedido
+            const metaData = lineItem.meta_data || [];
+            const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys'); // Procura pela chave correta
+            if (activationCodeObject) {
+                activationCode = activationCodeObject.value;
+            }
+        }
 
         console.log(`Código de ativação encontrado: ${activationCode}`);
         
