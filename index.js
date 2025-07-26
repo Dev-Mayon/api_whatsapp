@@ -67,55 +67,59 @@ async function sendMessage(to, templateName, components = []) {
 // Lembre-se: ajuste o nome do template e parâmetros conforme o que está aprovado no painel!
 
 // 1. Pedido concluído (template: pedido)
-// 1. Pedido concluído (template: pedido) - VERSÃO FINAL ROBUSTA
-// Substitua o seu app.post('/webhook/pedido', ...) por este código final:
+// VERSÃO FINAL - BUSCA TODOS OS DADOS, INCLUINDO CÓDIGO DE ATIVAÇÃO
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
-    console.log('Webhook de pedido recebido do Automator. Order Key:', data.order_key);
-
-    const orderId = data.order_key; // Pega o Order ID que o Automator nos envia
+    const orderId = data.order_key;
 
     if (!orderId) {
-        console.log('ERRO: Order ID não foi recebido do Automator.');
+        console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
         return res.status(400).send('Order ID não recebido.');
     }
 
+    console.log(`Buscando dados completos do pedido ${orderId} no WooCommerce...`);
+
     try {
-        // --- BUSCANDO DADOS DO PEDIDO NA API DO WOOCOMMERCE ---
+        // --- BUSCA OS DADOS PRINCIPAIS DO PEDIDO ---
         const WC_URL = process.env.WC_URL;
         const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
         const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
-
-        console.log(`Buscando dados do pedido ${orderId} no WooCommerce...`);
         const response = await axios.get(`${WC_URL}/wp-json/wc/v3/orders/${orderId}`, {
-            auth: {
-                username: WC_CONSUMER_KEY,
-                password: WC_CONSUMER_SECRET
-            }
+            auth: { username: WC_CONSUMER_KEY, password: WC_CONSUMER_SECRET }
         });
 
         const orderData = response.data;
-        const phoneNumber = orderData.billing.phone; // Pega o telefone real direto do pedido!
+        const phoneNumber = orderData.billing.phone;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
-        
+
+        // --- BUSCA O CÓDIGO DE ATIVAÇÃO (CAMPO PERSONALIZADO) ---
+        // O código de ativação fica em uma seção chamada "meta_data"
+        const metaData = orderData.meta_data || [];
+        const activationCodeObject = metaData.find(meta => meta.key === 'cw_activation_code');
+        const activationCode = activationCodeObject ? activationCodeObject.value : 'N/A';
+
+        console.log(`Código de ativação encontrado: ${activationCode}`);
+
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [
-                { type: 'body', parameters: [
-                    { type: 'text', text: firstName },
-                    { type: 'text', text: orderItems },
-                    { type: 'text', text: orderTotal },
-                    { type: 'text', text: orderId.toString() } // Usamos o orderId como orderKey
-                ]}
+                {
+                    type: 'body', parameters: [
+                        { type: 'text', text: firstName },           // {{1}}
+                        { type: 'text', text: orderItems },         // {{2}}
+                        { type: 'text', text: orderTotal },         // {{3}}
+                        { type: 'text', text: activationCode }      // {{4}} - CÓDIGO DE ATIVAÇÃO!
+                    ]
+                }
             ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
-            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce. Mensagem não enviada.`);
+            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
         }
 
     } catch (apiError) {
-        console.error(`ERRO ao buscar dados do pedido ${orderId} na API do WooCommerce:`, apiError.response ? apiError.response.data : apiError.message);
+        console.error(`ERRO ao buscar dados do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
     }
 
     res.status(200).send('Webhook de pedido processado.');
