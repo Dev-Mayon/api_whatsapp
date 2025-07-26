@@ -96,6 +96,7 @@ app.post('/webhook/pedido', async (req, res) => {
         });
 
         const orderData = response.data;
+        console.log('DADOS COMPLETOS DO PEDIDO:', JSON.stringify(orderData, null, 2));
         const phoneNumber = orderData.billing.phone;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
