@@ -1,5 +1,5 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP (MODO DE DIAGNÓSTICO FINAL)
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (PRODUÇÃO)
 // =================================================================
 
 // --- 1. IMPORTAÇÃO DE PACOTES ---
@@ -48,7 +48,7 @@ async function sendMessage(to, templateName, components = []) {
     }
 }
 
-// --- 5. ENDPOINT DE PEDIDO (MODO DE DIAGNÓSTICO) ---
+// --- 5. ENDPOINT DE PEDIDO ---
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -73,12 +73,6 @@ app.post('/webhook/pedido', async (req, res) => {
         });
 
         const orderData = response.data;
-
-        // ### O MAPA DO TESOURO ESTÁ AQUI ###
-        // Esta linha vai nos mostrar exatamente onde o código de ativação está.
-        console.log('DADOS COMPLETOS DO PEDIDO (DIAGNÓSTICO):', JSON.stringify(orderData, null, 2));
-
-        // O resto do código tentará funcionar como antes, mas o log acima é o mais importante.
         const phoneNumber = orderData.billing.phone;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
@@ -93,7 +87,7 @@ app.post('/webhook/pedido', async (req, res) => {
                 activationCode = activationCodeObject.value;
             }
         }
-        console.log(`Tentativa de encontrar código de ativação: ${activationCode}`);
+        console.log(`Código de ativação encontrado: ${activationCode}`);
         
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
@@ -102,7 +96,7 @@ app.post('/webhook/pedido', async (req, res) => {
             console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
         }
 
-        res.status(200).send('Processamento de diagnóstico concluído.');
+        res.status(200).send('Processamento do webhook do WhatsApp concluído.');
 
     } catch (apiError) {
         console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
@@ -112,10 +106,10 @@ app.post('/webhook/pedido', async (req, res) => {
 
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
-    res.send('Servidor CargaPlay WhatsApp (MODO DE DIAGNÓSTICO) está no ar!');
+    res.send('Servidor CargaPlay WhatsApp (PRODUÇÃO) está no ar!');
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor de diagnóstico escutando na porta ${PORT}`);
+    console.log(`Servidor de produção escutando na porta ${PORT}`);
 });
