@@ -70,20 +70,21 @@ async function sendMessage(to, templateName, components = []) {
 // VERSÃO FINAL - BUSCA TODOS OS DADOS, INCLUINDO CÓDIGO DE ATIVAÇÃO
 // VERSÃO FINAL COM PAUSA DE 15 SEGUNDOS
 // VERSÃO FINAL E DEFINITIVA - Encontra o código dentro do item de linha
+// VERSÃO FINAL COMPLETA - ENVIA WHATSAPP E DISPARA E-MAIL
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
+    
+    // Responde imediatamente ao Automator para não deixá-lo esperando
+    res.status(200).send('Webhook de pedido recebido. Processando em segundo plano.');
 
     if (!orderId) {
-        console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
-        return res.status(400).send('Order ID não recebido.');
+        return console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
     }
 
     console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 15 SEGUNDOS...`);
-
-    await new Promise(resolve => setTimeout(resolve, 15000));
-
-    console.log(`Pausa de 15 segundos completa. Buscando dados do pedido ${orderId}...`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    console.log(`Pausa de 10 segundos completa. Buscando dados do pedido ${orderId}...`);
 
     try {
         const WC_URL = process.env.WC_URL;
@@ -96,42 +97,44 @@ app.post('/webhook/pedido', async (req, res) => {
 
         const orderData = response.data;
         const phoneNumber = orderData.billing.phone;
+        const email = orderData.billing.email;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
         
-        // --- CÓDIGO CORRIGIDO PARA ENCONTRAR A CHAVE DE ATIVAÇÃO ---
-        let activationCode = 'N/A'; // Valor padrão
+        let activationCode = 'N/A';
         if (orderData.line_items && orderData.line_items.length > 0) {
-            const lineItem = orderData.line_items[0]; // Pega o primeiro produto do pedido
-            const metaData = lineItem.meta_data || [];
-            const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys'); // Procura pela chave correta
+            const metaData = orderData.line_items[0].meta_data || [];
+            const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
             if (activationCodeObject) {
                 activationCode = activationCodeObject.value;
             }
         }
-
         console.log(`Código de ativação encontrado: ${activationCode}`);
         
+        // 1. Envia o WhatsApp
         if (phoneNumber && phoneNumber.length > 5) {
-            const components = [
-                { type: 'body', parameters: [
-                    { type: 'text', text: firstName },
-                    { type: 'text', text: orderItems },
-                    { type: 'text', text: orderTotal },
-                    { type: 'text', text: activationCode }
-                ]}
-            ];
+            const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
             await sendMessage(phoneNumber, 'pedido', components);
+        }
+
+        // 2. Dispara o Webhook para o E-mail
+        const emailWebhookUrl = process.env.AUTOMATOR_EMAIL_WEBHOOK_URL;
+        if (emailWebhookUrl && email) {
+            console.log(`Disparando webhook de e-mail para ${email}...`);
+            await axios.post(emailWebhookUrl, {
+                email: email,
+                first_name: firstName,
+                activation_code: activationCode
+            });
+            console.log('Webhook de e-mail disparado com sucesso para o Automator.');
         } else {
-            console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
+            console.log('AVISO: Webhook de e-mail não disparado. Verifique a variável de ambiente AUTOMATOR_EMAIL_WEBHOOK_URL e se o pedido tem um e-mail.');
         }
 
     } catch (apiError) {
-        console.error(`ERRO ao buscar dados do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
+        console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
     }
-
-    res.status(200).send('Webhook de pedido processado.');
 });
 
 // 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias)
