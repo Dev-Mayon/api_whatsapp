@@ -1,5 +1,5 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (ESTÁVEL - APENAS WHATSAPP)
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP (MODO DE DIAGNÓSTICO FINAL)
 // =================================================================
 
 // --- 1. IMPORTAÇÃO DE PACOTES ---
@@ -48,9 +48,7 @@ async function sendMessage(to, templateName, components = []) {
     }
 }
 
-// --- 5. ENDPOINTS (URLs) ---
-
-// 1. Pedido concluído (template: pedido) - VERSÃO ESTÁVEL E COMPROVADA
+// --- 5. ENDPOINT DE PEDIDO (MODO DE DIAGNÓSTICO) ---
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -66,7 +64,7 @@ app.post('/webhook/pedido', async (req, res) => {
 
     try {
         if (!WC_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
-            console.error('ERRO: Variáveis de ambiente do WooCommerce (WC_URL, etc.) não estão configuradas na Render.');
+            console.error('ERRO: Variáveis de ambiente do WooCommerce não estão configuradas.');
             return res.status(500).send('Erro de configuração do servidor.');
         }
 
@@ -75,6 +73,12 @@ app.post('/webhook/pedido', async (req, res) => {
         });
 
         const orderData = response.data;
+
+        // ### O MAPA DO TESOURO ESTÁ AQUI ###
+        // Esta linha vai nos mostrar exatamente onde o código de ativação está.
+        console.log('DADOS COMPLETOS DO PEDIDO (DIAGNÓSTICO):', JSON.stringify(orderData, null, 2));
+
+        // O resto do código tentará funcionar como antes, mas o log acima é o mais importante.
         const phoneNumber = orderData.billing.phone;
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
@@ -89,7 +93,7 @@ app.post('/webhook/pedido', async (req, res) => {
                 activationCode = activationCodeObject.value;
             }
         }
-        console.log(`Código de ativação encontrado: ${activationCode}`);
+        console.log(`Tentativa de encontrar código de ativação: ${activationCode}`);
         
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
@@ -98,7 +102,7 @@ app.post('/webhook/pedido', async (req, res) => {
             console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
         }
 
-        res.status(200).send('Processamento do webhook do WhatsApp concluído.');
+        res.status(200).send('Processamento de diagnóstico concluído.');
 
     } catch (apiError) {
         console.error(`ERRO no processamento do pedido ${orderId}:`, apiError.response ? apiError.response.data : apiError.message);
@@ -106,23 +110,12 @@ app.post('/webhook/pedido', async (req, res) => {
     }
 });
 
-// Mantenha seus outros endpoints de lembrete aqui
-app.post('/webhook/lembrete_3dias', async (req, res) => {
-    const contact = req.body;
-    console.log('Webhook /lembrete_3dias recebido para:', contact.email);
-    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, 'lembrete_3dias', components);
-    res.status(200).send('Webhook de lembrete 3 dias processado.');
-});
-
-// ... (seus outros webhooks de lembrete) ...
-
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
-    res.send('Servidor CargaPlay WhatsApp v4 (ESTÁVEL - APENAS WHATSAPP) está no ar!');
+    res.send('Servidor CargaPlay WhatsApp (MODO DE DIAGNÓSTICO) está no ar!');
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor v4 escutando na porta ${PORT}`);
+    console.log(`Servidor de diagnóstico escutando na porta ${PORT}`);
 });
