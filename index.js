@@ -68,22 +68,29 @@ async function sendMessage(to, templateName, components = []) {
 
 // 1. Pedido concluído (template: pedido)
 // VERSÃO FINAL - BUSCA TODOS OS DADOS, INCLUINDO CÓDIGO DE ATIVAÇÃO
+// VERSÃO FINAL COM PAUSA DE 15 SEGUNDOS
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
-    const orderId = data.order_key;
+    const orderId = data.order_key; 
 
     if (!orderId) {
         console.log('ERRO: Order ID (order_key) não foi recebido do Automator.');
         return res.status(400).send('Order ID não recebido.');
     }
 
-    console.log(`Buscando dados completos do pedido ${orderId} no WooCommerce...`);
+    console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 15 SEGUNDOS...`);
+
+    // --- NOVA PARTE: A PAUSA DE 15 SEGUNDOS ---
+    await new Promise(resolve => setTimeout(resolve, 15000)); // 15000 milissegundos = 15 segundos
+
+    console.log(`Pausa de 15 segundos completa. Buscando dados completos do pedido ${orderId} no WooCommerce...`);
 
     try {
-        // --- BUSCA OS DADOS PRINCIPAIS DO PEDIDO ---
+        // --- O RESTO DO CÓDIGO CONTINUA IGUAL ---
         const WC_URL = process.env.WC_URL;
         const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY;
         const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET;
+
         const response = await axios.get(`${WC_URL}/wp-json/wc/v3/orders/${orderId}`, {
             auth: { username: WC_CONSUMER_KEY, password: WC_CONSUMER_SECRET }
         });
@@ -93,25 +100,21 @@ app.post('/webhook/pedido', async (req, res) => {
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
-
-        // --- BUSCA O CÓDIGO DE ATIVAÇÃO (CAMPO PERSONALIZADO) ---
-        // O código de ativação fica em uma seção chamada "meta_data"
+        
         const metaData = orderData.meta_data || [];
         const activationCodeObject = metaData.find(meta => meta.key === 'cw_activation_code');
         const activationCode = activationCodeObject ? activationCodeObject.value : 'N/A';
 
         console.log(`Código de ativação encontrado: ${activationCode}`);
-
+        
         if (phoneNumber && phoneNumber.length > 5) {
             const components = [
-                {
-                    type: 'body', parameters: [
-                        { type: 'text', text: firstName },           // {{1}}
-                        { type: 'text', text: orderItems },         // {{2}}
-                        { type: 'text', text: orderTotal },         // {{3}}
-                        { type: 'text', text: activationCode }      // {{4}} - CÓDIGO DE ATIVAÇÃO!
-                    ]
-                }
+                { type: 'body', parameters: [
+                    { type: 'text', text: firstName },
+                    { type: 'text', text: orderItems },
+                    { type: 'text', text: orderTotal },
+                    { type: 'text', text: activationCode }
+                ]}
             ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
