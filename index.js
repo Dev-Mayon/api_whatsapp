@@ -1,17 +1,14 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (PRODUÇÃO)
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (PRODUÇÃO) - ATUALIZADO
 // =================================================================
 
-// --- 1. IMPORTAÇÃO DE PACOTES ---
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 
-// --- 2. CONFIGURAÇÃO INICIAL DO SERVIDOR ---
 const app = express();
 app.use(bodyParser.json());
 
-// --- 3. LEITURA DAS CREDENCIAIS DO AMBIENTE RENDER ---
 const WABA_ID = process.env.WABA_ID;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
@@ -77,20 +74,54 @@ app.post('/webhook/pedido', async (req, res) => {
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
-        
+
         let activationCode = 'N/A';
+
         if (orderData.line_items && orderData.line_items.length > 0) {
-            const lineItem = orderData.line_items[0];
-            const metaData = lineItem.meta_data || [];
-            const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
-            if (activationCodeObject) {
-                activationCode = activationCodeObject.value;
+            for (const [i, lineItem] of orderData.line_items.entries()) {
+                const metaData = lineItem.meta_data || [];
+                console.log(`meta_data do line_item [${i}]:`, metaData);
+
+                // Busca por vários possíveis nomes de campo (amplie se necessário)
+                const activationCodeObject = metaData.find(meta =>
+                    meta.key === '_activation_keys' ||
+                    meta.key === 'activation_key' ||
+                    meta.key === 'key_code' ||
+                    meta.key === 'chave' ||
+                    meta.key === 'license' ||
+                    meta.key === 'license_key'
+                );
+
+                if (activationCodeObject) {
+                    if (Array.isArray(activationCodeObject.value)) {
+                        activationCode = activationCodeObject.value[0];
+                    } else {
+                        activationCode = activationCodeObject.value;
+                    }
+                    // Sai do loop ao encontrar o primeiro válido
+                    break;
+                }
             }
         }
-        console.log(`Código de ativação encontrado: ${activationCode}`);
-        
+
+        if (activationCode === 'N/A') {
+            console.log('ATENÇÃO: Nenhuma chave de ativação encontrada nos meta_data dos itens do pedido.');
+        } else {
+            console.log(`Código de ativação encontrado: ${activationCode}`);
+        }
+
         if (phoneNumber && phoneNumber.length > 5) {
-            const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
+            const components = [
+                {
+                    type: 'body',
+                    parameters: [
+                        { type: 'text', text: firstName },
+                        { type: 'text', text: orderItems },
+                        { type: 'text', text: orderTotal },
+                        { type: 'text', text: activationCode }
+                    ]
+                }
+            ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
             console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
