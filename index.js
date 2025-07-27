@@ -1,5 +1,6 @@
 // =================================================================
 // SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (CÓDIGO COMPLETO E FINAL)
+// VERSÃO COM NOMES DE TEMPLATE CORRIGIDOS
 // =================================================================
 
 // --- 1. IMPORTAÇÃO DE PACOTES ---
@@ -50,8 +51,9 @@ async function sendMessage(to, templateName, components = []) {
 
 // --- 5. ENDPOINTS (URLs) PARA CADA TEMPLATE ---
 
-// 1. Pedido concluído (template: pedido) - Lógica complexa com busca de código
+// 1. Pedido concluído (template: pedido)
 app.post('/webhook/pedido', async (req, res) => {
+    // ... (código do webhook de pedido continua o mesmo)
     const data = req.body;
     const orderId = data.order_key; 
 
@@ -106,39 +108,41 @@ app.post('/webhook/pedido', async (req, res) => {
     }
 });
 
-// 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias) - Lógica simples
+// 2. Lembrete 3 dias antes de expirar (template: lembrete_vencimento_3_dias)
 app.post('/webhook/lembrete_3dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_3dias recebido para:', contact.email);
     const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, 'lembrete_3dias', components);
+    // CORREÇÃO AQUI
+    await sendMessage(contact.phone, 'lembrete_vencimento_3_dias', components);
     res.status(200).send('Webhook de lembrete 3 dias processado.');
 });
 
-// 3. Expira hoje (template: expira_hoje)
+// 3. Expira hoje (template: aviso_expiracao_hoje)
 app.post('/webhook/expira_hoje', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /expira_hoje recebido para:', contact.email);
     const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, 'expira_hoje', components);
+    // CORREÇÃO AQUI
+    await sendMessage(contact.phone, 'aviso_expiracao_hoje', components);
     res.status(200).send('Webhook de expira hoje processado.');
 });
 
-// 4. Lembrete 35 dias (template: lembrete_35dias)
+// 4. Lembrete 35 dias (template: lembrete_35_dias)
 app.post('/webhook/lembrete_35dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_35dias recebido para:', contact.email);
     const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, 'lembrete_35dias', components);
+    await sendMessage(contact.phone, 'lembrete_35_dias', components);
     res.status(200).send('Webhook de lembrete 35 dias processado.');
 });
 
-// 5. Lembrete 40 dias CUPOM (template: lembrete_40dias_cupom)
+// 5. Lembrete 40 dias CUPOM (template: lembrete_40_dias_cupom)
 app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /lembrete_40dias_cupom recebido para:', contact.email);
     const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, 'lembrete_40dias_cupom', components);
+    await sendMessage(contact.phone, 'lembrete_40_dias_cupom', components);
     res.status(200).send('Webhook de lembrete 40 dias cupom processado.');
 });
 
@@ -151,12 +155,13 @@ app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
     res.status(200).send('Webhook de lembrete 57 dias cupom processado.');
 });
 
-// 7. Lembrete 60 dias (template: 60dias)
+// 7. Lembrete 60 dias (template: lembrete_final_60_dias)
 app.post('/webhook/60dias', async (req, res) => {
     const contact = req.body;
     console.log('Webhook /60dias recebido para:', contact.email);
     const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
-    await sendMessage(contact.phone, '60dias', components);
+    // CORREÇÃO AQUI
+    await sendMessage(contact.phone, 'lembrete_final_60_dias', components);
     res.status(200).send('Webhook de 60 dias processado.');
 });
 
