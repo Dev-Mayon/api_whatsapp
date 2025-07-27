@@ -1,14 +1,17 @@
 // =================================================================
-// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (PRODUÇÃO) - ATUALIZADO
+// SERVIDOR DE INTEGRAÇÃO WHATSAPP CARGAPLAY v4 (CÓDIGO COMPLETO E FINAL)
 // =================================================================
 
+// --- 1. IMPORTAÇÃO DE PACOTES ---
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 
+// --- 2. CONFIGURAÇÃO INICIAL DO SERVIDOR ---
 const app = express();
 app.use(bodyParser.json());
 
+// --- 3. LEITURA DAS CREDENCIAIS DO AMBIENTE RENDER ---
 const WABA_ID = process.env.WABA_ID;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
@@ -45,7 +48,9 @@ async function sendMessage(to, templateName, components = []) {
     }
 }
 
-// --- 5. ENDPOINT DE PEDIDO ---
+// --- 5. ENDPOINTS (URLs) PARA CADA TEMPLATE ---
+
+// 1. Pedido concluído (template: pedido) - Lógica complexa com busca de código
 app.post('/webhook/pedido', async (req, res) => {
     const data = req.body;
     const orderId = data.order_key; 
@@ -74,54 +79,20 @@ app.post('/webhook/pedido', async (req, res) => {
         const firstName = orderData.billing.first_name || 'Cliente';
         const orderItems = orderData.line_items.map(item => item.name).join(', ') || 'Produto não especificado';
         const orderTotal = `R$ ${parseFloat(orderData.total).toFixed(2).replace('.', ',')}`;
-
+        
         let activationCode = 'N/A';
-
         if (orderData.line_items && orderData.line_items.length > 0) {
-            for (const [i, lineItem] of orderData.line_items.entries()) {
-                const metaData = lineItem.meta_data || [];
-                console.log(`meta_data do line_item [${i}]:`, metaData);
-
-                // Busca por vários possíveis nomes de campo (amplie se necessário)
-                const activationCodeObject = metaData.find(meta =>
-                    meta.key === '_activation_keys' ||
-                    meta.key === 'activation_key' ||
-                    meta.key === 'key_code' ||
-                    meta.key === 'chave' ||
-                    meta.key === 'license' ||
-                    meta.key === 'license_key'
-                );
-
-                if (activationCodeObject) {
-                    if (Array.isArray(activationCodeObject.value)) {
-                        activationCode = activationCodeObject.value[0];
-                    } else {
-                        activationCode = activationCodeObject.value;
-                    }
-                    // Sai do loop ao encontrar o primeiro válido
-                    break;
-                }
+            const lineItem = orderData.line_items[0];
+            const metaData = lineItem.meta_data || [];
+            const activationCodeObject = metaData.find(meta => meta.key === '_activation_keys');
+            if (activationCodeObject) {
+                activationCode = activationCodeObject.value;
             }
         }
-
-        if (activationCode === 'N/A') {
-            console.log('ATENÇÃO: Nenhuma chave de ativação encontrada nos meta_data dos itens do pedido.');
-        } else {
-            console.log(`Código de ativação encontrado: ${activationCode}`);
-        }
-
+        console.log(`Código de ativação encontrado: ${activationCode}`);
+        
         if (phoneNumber && phoneNumber.length > 5) {
-            const components = [
-                {
-                    type: 'body',
-                    parameters: [
-                        { type: 'text', text: firstName },
-                        { type: 'text', text: orderItems },
-                        { type: 'text', text: orderTotal },
-                        { type: 'text', text: activationCode }
-                    ]
-                }
-            ];
+            const components = [ { type: 'body', parameters: [ { type: 'text', text: firstName }, { type: 'text', text: orderItems }, { type: 'text', text: orderTotal }, { type: 'text', text: activationCode } ] } ];
             await sendMessage(phoneNumber, 'pedido', components);
         } else {
             console.log(`AVISO: Pedido ${orderId} não possui número de telefone no WooCommerce.`);
@@ -135,12 +106,66 @@ app.post('/webhook/pedido', async (req, res) => {
     }
 });
 
+// 2. Lembrete 3 dias antes de expirar (template: lembrete_3dias) - Lógica simples
+app.post('/webhook/lembrete_3dias', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /lembrete_3dias recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'lembrete_3dias', components);
+    res.status(200).send('Webhook de lembrete 3 dias processado.');
+});
+
+// 3. Expira hoje (template: expira_hoje)
+app.post('/webhook/expira_hoje', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /expira_hoje recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'expira_hoje', components);
+    res.status(200).send('Webhook de expira hoje processado.');
+});
+
+// 4. Lembrete 35 dias (template: lembrete_35dias)
+app.post('/webhook/lembrete_35dias', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /lembrete_35dias recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'lembrete_35dias', components);
+    res.status(200).send('Webhook de lembrete 35 dias processado.');
+});
+
+// 5. Lembrete 40 dias CUPOM (template: lembrete_40dias_cupom)
+app.post('/webhook/lembrete_40dias_cupom', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /lembrete_40dias_cupom recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'lembrete_40dias_cupom', components);
+    res.status(200).send('Webhook de lembrete 40 dias cupom processado.');
+});
+
+// 6. Lembrete 57 dias CUPOM (template: lembrete_57_dias_cupom)
+app.post('/webhook/lembrete_57_dias_cupom', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /lembrete_57_dias recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, 'lembrete_57_dias_cupom', components);
+    res.status(200).send('Webhook de lembrete 57 dias cupom processado.');
+});
+
+// 7. Lembrete 60 dias (template: 60dias)
+app.post('/webhook/60dias', async (req, res) => {
+    const contact = req.body;
+    console.log('Webhook /60dias recebido para:', contact.email);
+    const components = [ { type: 'body', parameters: [ { type: 'text', text: contact.first_name || 'Cliente' } ] } ];
+    await sendMessage(contact.phone, '60dias', components);
+    res.status(200).send('Webhook de 60 dias processado.');
+});
+
 // --- 6. ENDPOINT DE VERIFICAÇÃO E INÍCIO DO SERVIDOR ---
 app.get('/', (req, res) => {
-    res.send('Servidor CargaPlay WhatsApp (PRODUÇÃO) está no ar!');
+    res.send('Servidor CargaPlay WhatsApp v4 (COMPLETO E FINAL) está no ar!');
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor de produção escutando na porta ${PORT}`);
+    console.log(`Servidor v4 escutando na porta ${PORT}`);
 });
