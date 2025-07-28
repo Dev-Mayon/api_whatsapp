@@ -62,9 +62,9 @@ app.post('/webhook/pedido', async (req, res) => {
         return res.status(400).send('Order ID não recebido.');
     }
 
-    console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 15 SEGUNDOS...`);
-    await new Promise(resolve => setTimeout(resolve, 15000));
-    console.log(`Pausa de 15 segundos completa. Buscando dados do pedido ${orderId}...`);
+    console.log(`Webhook para o pedido ${orderId} recebido. AGUARDANDO 10 SEGUNDOS...`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    console.log(`Pausa de 10 segundos completa. Buscando dados do pedido ${orderId}...`);
 
     try {
         if (!WC_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
